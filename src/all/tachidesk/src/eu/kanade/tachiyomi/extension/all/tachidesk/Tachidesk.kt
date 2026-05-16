@@ -109,6 +109,16 @@ class Tachidesk : ConfigurableSource, UnmeteredSource, HttpSource() {
         }
     }
 
+    private inner class CustomHeadersInterceptor : Interceptor {
+        override fun intercept(chain: Interceptor.Chain): Response {
+            if (customHttpHeaders.isEmpty()) return chain.proceed(chain.request())
+
+            val builder = chain.request().newBuilder()
+            customHttpHeaders.forEach { builder.header(it.key, it.value) }
+            return chain.proceed(builder.build())
+        }
+    }
+
     private fun createApolloClient(serverUrl: String): ApolloClient {
         return ApolloClient.Builder()
             .serverUrl("$serverUrl/api/graphql")
@@ -121,6 +131,14 @@ class Tachidesk : ConfigurableSource, UnmeteredSource, HttpSource() {
     private val baseAuthMode by lazy { getPrefBaseAuthMode() }
     private val baseLogin by lazy { getPrefBaseLogin() }
     private val basePassword by lazy { getPrefBasePassword() }
+
+    private val customHttpHeaders by lazy {
+        getPrefCustomHttpHeaders().lineSequence()
+            .filter(String::isNotBlank)
+            .map { it.split(":", limit = 2) }
+            .filter { it.size == 2 }
+            .associate { it[0].trim() to it[1].trim() }
+    }
 
     override val lang = "all"
     override val supportsLatest = true
@@ -143,12 +161,14 @@ class Tachidesk : ConfigurableSource, UnmeteredSource, HttpSource() {
             .dns(Dns.SYSTEM) // don't use DNS over HTTPS as it breaks IP addressing
             .callTimeout(2, TimeUnit.MINUTES)
             .addInterceptor(OkAuthorizationInterceptor(tokenManager))
+            .addInterceptor(CustomHeadersInterceptor())
             .build()
 
     override fun headersBuilder(): Headers.Builder = Headers.Builder().apply {
         tokenManager.value.getHeaders().forEach {
             add(it.name, it.value)
         }
+        customHttpHeaders.forEach { add(it.key, it.value) }
     }
 
     // ------------- Popular Manga -------------
@@ -746,16 +766,18 @@ class Tachidesk : ConfigurableSource, UnmeteredSource, HttpSource() {
         screen.addPreference(screen.editTextPreference(PASSWORD_TITLE, PASSWORD_DEFAULT, basePassword, true, "", PASSWORD_KEY))
         screen.addPreference(screen.checkBoxPreference(TRACKER_DELETE_TITLE, TRACKER_DELETE_DEFAULT, "", TRACKER_DELETE_KEY))
         screen.addPreference(screen.checkBoxPreference(FETCH_DATA_FROM_SOURCE_TITLE, FETCH_DATA_FROM_SOURCE_DEFAULT, "", FETCH_DATA_FROM_SOURCE_TITLE))
+        screen.addPreference(screen.editTextPreference(CUSTOM_HTTP_HEADERS_TITLE, CUSTOM_HTTP_HEADERS_DEFAULT, "", false, "", CUSTOM_HTTP_HEADERS_TITLE, "One per line, e.g.:\nHeader1: value1\nHeader2: value2"))
     }
 
     /** boilerplate for [EditTextPreference] */
-    private fun PreferenceScreen.editTextPreference(title: String, default: String, value: String, isPassword: Boolean = false, placeholder: String, key: String): EditTextPreference {
+    private fun PreferenceScreen.editTextPreference(title: String, default: String, value: String, isPassword: Boolean = false, placeholder: String, key: String, dialogMessage: String? = null): EditTextPreference {
         return EditTextPreference(context).apply {
             this.key = title
             this.title = title
             summary = value.ifEmpty { placeholder }
             this.setDefaultValue(default)
             dialogTitle = title
+            this.dialogMessage = dialogMessage
 
             if (isPassword) {
                 setOnBindEditTextListener {
@@ -834,6 +856,7 @@ class Tachidesk : ConfigurableSource, UnmeteredSource, HttpSource() {
     private fun getPrefBasePassword(): String = preferences.getString(PASSWORD_KEY, PASSWORD_DEFAULT)!!
     private fun getPrefTrackerDelete(): Boolean = preferences.getBoolean(TRACKER_DELETE_KEY, TRACKER_DELETE_DEFAULT)
     private fun fetchDataFromSource(): Boolean = preferences.getBoolean(FETCH_DATA_FROM_SOURCE_TITLE, FETCH_DATA_FROM_SOURCE_DEFAULT)
+    private fun getPrefCustomHttpHeaders(): String = preferences.getString(CUSTOM_HTTP_HEADERS_TITLE, CUSTOM_HTTP_HEADERS_DEFAULT)!!
 
     companion object {
         private const val ADDRESS_TITLE = "Server URL Address"
@@ -851,6 +874,8 @@ class Tachidesk : ConfigurableSource, UnmeteredSource, HttpSource() {
         private const val TRACKER_DELETE_DEFAULT = false
         private const val FETCH_DATA_FROM_SOURCE_TITLE = "Fetch Data From Source"
         private const val FETCH_DATA_FROM_SOURCE_DEFAULT = true
+        private const val CUSTOM_HTTP_HEADERS_TITLE = "Custom HTTP headers"
+        private const val CUSTOM_HTTP_HEADERS_DEFAULT = ""
 
         private const val TAG = "Tachidesk"
     }
