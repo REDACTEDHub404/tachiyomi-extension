@@ -896,7 +896,11 @@ class Tachidesk : ConfigurableSource, UnmeteredSource, HttpSource() {
     private fun MangaFragment.toSManga() = SManga.create().also {
         var desc = description
         if (getPrefMentionSourceInDescription() && source != null) {
-            val append = "\n\n**Source:** ${source.displayName}"
+            val append = "\n\n**Source:** " + if (realUrl == null) {
+                source.displayName
+            } else {
+                "[${source.displayName}]($realUrl)"
+            }
             if (desc == null) {
                 desc = append
             } else {
