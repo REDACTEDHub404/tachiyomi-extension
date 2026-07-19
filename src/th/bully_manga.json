@@ -1,0 +1,16 @@
+{
+  "name": "Bully Manga",
+  "baseUrl": "https://bully-manga.com",
+  "lang": "th",
+  "contentType": "manga",
+  "selectors": {
+    "mangaList": "div.grid div.relative.group",
+    "mangaTitle": "h3 a",
+    "mangaCover": "img",
+    "mangaUrl": "h3 a",
+    "chapterList": "div.grid.grid-cols-1 a",
+    "chapterTitle": "span.font-medium",
+    "chapterUrl": "this",
+    "pageList": "div.flex.flex-col.items-center img"
+  }
+}
