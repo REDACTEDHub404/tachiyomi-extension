@@ -39,3 +39,5 @@ fun loadIndividualExtension(lang: String, name: String) {
 fun File.eachDir(block: (File) -> Unit) {
     listFiles()?.filter { it.isDirectory }?.forEach { block(it) }
 }
+include(":src-th-bullymanga")
+project(":src-th-bullymanga").projectDir = File("src/th/bullymanga")
